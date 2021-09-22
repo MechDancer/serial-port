@@ -9,14 +9,14 @@ use std::{
     ffi::{c_void, CStr},
     ptr::null,
 };
-use windows::{IntoParam, Param};
+use windows::{IntoParam, Param, Handle};
 
 pub struct ComPort(HANDLE);
 
 impl Drop for ComPort {
     fn drop(&mut self) {
         unsafe { CloseHandle(self.0) };
-        self.0 = HANDLE::NULL;
+        self.0 = HANDLE(0);
     }
 }
 
@@ -26,8 +26,8 @@ impl super::SerialPort for ComPort {
         let set = unsafe {
             SetupDiGetClassDevsA(
                 &GUID_DEVINTERFACE_COMPORT,
-                PSTR::NULL,
-                HWND::NULL,
+                PSTR(null::<u8>() as *mut u8),
+                HWND(0),
                 DIGCF_PRESENT | DIGCF_DEVICEINTERFACE,
             )
             // if *set == INVALID_HANDLE_VALUE {}
@@ -62,7 +62,7 @@ impl super::SerialPort for ComPort {
 
     fn open(path: &str, baud: u32) -> Result<Self, String> {
         let handle = unsafe {
-            let mut p: Param<'_, PSTR> = path.into_param();
+            let p: Param<'_, PSTR> = path.into_param();
             let handle = CreateFileA(
                 p.abi(),
                 FILE_ACCESS_FLAGS(GENERIC_READ | GENERIC_WRITE),
@@ -70,7 +70,7 @@ impl super::SerialPort for ComPort {
                 null::<SECURITY_ATTRIBUTES>() as *mut SECURITY_ATTRIBUTES,
                 OPEN_EXISTING,
                 FILE_FLAGS_AND_ATTRIBUTES(0),
-                HANDLE::NULL,
+                HANDLE(0),
             );
             if handle.is_invalid() {
                 return Err(format!("failed to open: {:?}", GetLastError()));
