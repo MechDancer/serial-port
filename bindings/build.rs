@@ -1,5 +1,4 @@
 ﻿fn main() {
-    #[cfg(target_os = "windows")]
     windows::build! {
         Windows::Win32::Foundation::CloseHandle,
         Windows::Win32::System::Diagnostics::Debug::GetLastError,
