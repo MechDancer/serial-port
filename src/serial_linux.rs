@@ -30,7 +30,7 @@ impl super::SerialPort for TTYPort {
         }
     }
 
-    fn open(path: &str) -> Result<Self, String> {
+    fn open(path: &str, baud: u32) -> Result<Self, String> {
         fn map_errno<T>(method: &str, e: Errno) -> Result<T, String> {
             Err(format!("failed to {}: {:?}", method, e))
         }
@@ -53,7 +53,7 @@ impl super::SerialPort for TTYPort {
         tty.control_flags.remove(ControlFlags::all());
         tty.local_flags.remove(termios::LocalFlags::all());
 
-        if let Err(e) = termios::cfsetspeed(&mut tty, termios::BaudRate::B230400) {
+        if let Err(e) = termios::cfsetspeed(&mut tty, baud_rate_translate(baud)) {
             return map_errno("cfsetspeed", e);
         }
         tty.control_flags.insert(ControlFlags::CS8);
@@ -75,5 +75,15 @@ impl super::SerialPort for TTYPort {
 
     fn write(&self, buffer: &[u8]) -> Option<usize> {
         nix::unistd::write(self.0, buffer).ok()
+    }
+}
+
+fn baud_rate_translate(baud: u32) -> termios::BaudRate {
+    match baud {
+        9600 => termios::BaudRate::B9600,
+        115200 => termios::BaudRate::B115200,
+        230400 => termios::BaudRate::B230400,
+        460800 => termios::BaudRate::B460800,
+        _ => panic!("unsupported baud rate: {}", baud),
     }
 }
