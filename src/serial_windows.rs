@@ -6,12 +6,12 @@
     System::{
         Diagnostics::Debug::GetLastError,
         SystemServices::*,
-        Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0, WAIT_TIMEOUT},
+        Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0},
     },
 };
 use std::{
     ffi::{c_void, CStr},
-    ptr::{null, NonNull},
+    ptr::null,
 };
 use windows::{Handle, IntoParam, Param};
 
