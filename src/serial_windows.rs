@@ -3,13 +3,17 @@
     Foundation::{CloseHandle, HANDLE, HWND, PSTR},
     Security::SECURITY_ATTRIBUTES,
     Storage::FileSystem::*,
-    System::{Diagnostics::Debug::GetLastError, SystemServices::*},
+    System::{
+        Diagnostics::Debug::GetLastError,
+        SystemServices::*,
+        Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0, WAIT_TIMEOUT},
+    },
 };
 use std::{
     ffi::{c_void, CStr},
-    ptr::null,
+    ptr::{null, NonNull},
 };
-use windows::{IntoParam, Param, Handle};
+use windows::{Handle, IntoParam, Param};
 
 pub struct ComPort(HANDLE);
 
@@ -69,7 +73,7 @@ impl super::SerialPort for ComPort {
                 FILE_SHARE_MODE(0),
                 null::<SECURITY_ATTRIBUTES>() as *mut SECURITY_ATTRIBUTES,
                 OPEN_EXISTING,
-                FILE_FLAGS_AND_ATTRIBUTES(0),
+                FILE_FLAG_OVERLAPPED,
                 HANDLE(0),
             );
             if handle.is_invalid() {
@@ -106,40 +110,62 @@ impl super::SerialPort for ComPort {
     }
 
     fn read(&self, buffer: &mut [u8]) -> Option<usize> {
+        let mut overlapped = OVERLAPPED::default();
         let mut read = 0u32;
-        if unsafe {
+        unsafe {
+            overlapped.hEvent = CreateEventA(
+                null::<SECURITY_ATTRIBUTES>() as *const SECURITY_ATTRIBUTES,
+                true,
+                false,
+                PSTR(null::<u8>() as *mut u8),
+            );
             ReadFile(
                 self.0,
                 buffer.as_ptr() as *mut c_void,
                 buffer.len() as u32,
                 &mut read,
-                null::<OVERLAPPED>() as *mut OVERLAPPED,
-            )
-        }
-        .as_bool()
-        {
-            Some(read as usize)
-        } else {
-            None
+                &mut overlapped,
+            );
+            match WaitForSingleObject(overlapped.hEvent, u32::MAX) {
+                WAIT_OBJECT_0 => {
+                    if !GetOverlappedResult(self.0, &overlapped, &mut read, false).as_bool() {
+                        None
+                    } else {
+                        Some(read as usize)
+                    }
+                }
+                _ => None,
+            }
         }
     }
 
     fn write(&self, buffer: &[u8]) -> Option<usize> {
+        let mut overlapped = OVERLAPPED::default();
         let mut written = 0u32;
-        if unsafe {
+        unsafe {
+            overlapped.hEvent = CreateEventA(
+                null::<SECURITY_ATTRIBUTES>() as *const SECURITY_ATTRIBUTES,
+                true,
+                false,
+                PSTR(null::<u8>() as *mut u8),
+            );
             WriteFile(
                 self.0,
                 buffer.as_ptr() as *const c_void,
                 buffer.len() as u32,
                 &mut written,
-                null::<OVERLAPPED>() as *mut OVERLAPPED,
-            )
-        }
-        .as_bool()
-        {
-            Some(written as usize)
-        } else {
-            None
+                &mut overlapped,
+            );
+            match WaitForSingleObject(overlapped.hEvent, u32::MAX) {
+                WAIT_OBJECT_0 => {
+                    if !GetOverlappedResult(self.0, &overlapped, &mut written, false).as_bool() {
+                        None
+                    } else {
+                        Some(written as usize)
+                    }
+                }
+                _ => None,
+            }
         }
     }
 }
