@@ -1,6 +1,6 @@
 pub trait SerialPort: Sized {
     fn list() -> Vec<String>;
-    fn open(path: &str, baud: u32) -> Result<Self, String>;
+    fn open(path: &str, baud: u32, timeout: u32) -> Result<Self, String>;
     fn read(&self, buffer: &mut [u8]) -> Option<usize>;
     fn write(&self, buffer: &[u8]) -> Option<usize>;
 }

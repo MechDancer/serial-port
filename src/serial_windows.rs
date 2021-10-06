@@ -64,7 +64,7 @@ impl super::SerialPort for ComPort {
         ports
     }
 
-    fn open(path: &str, baud: u32) -> Result<Self, String> {
+    fn open(path: &str, baud: u32, timeout: u32) -> Result<Self, String> {
         let handle = unsafe {
             let p: Param<'_, PSTR> = path.into_param();
             let handle = CreateFileA(
@@ -98,6 +98,7 @@ impl super::SerialPort for ComPort {
 
         let mut commtimeouts = COMMTIMEOUTS {
             ReadIntervalTimeout: 5,
+            ReadTotalTimeoutConstant: timeout,
             ..Default::default()
         };
         unsafe {
