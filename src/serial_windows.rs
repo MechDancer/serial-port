@@ -4,7 +4,7 @@
     Security::SECURITY_ATTRIBUTES,
     Storage::FileSystem::*,
     System::{
-        Diagnostics::Debug::GetLastError,
+        Diagnostics::Debug::{GetLastError, ERROR_IO_PENDING},
         SystemServices::*,
         Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0},
     },
@@ -14,7 +14,6 @@ use std::{
     ptr::null,
 };
 use windows::{Handle, IntoParam, Param};
-
 pub struct ComPort(HANDLE);
 
 impl Drop for ComPort {
@@ -120,13 +119,22 @@ impl super::SerialPort for ComPort {
                 false,
                 PSTR(null::<u8>() as *mut u8),
             );
-            ReadFile(
+            if ReadFile(
                 self.0,
                 buffer.as_ptr() as *mut c_void,
                 buffer.len() as u32,
                 &mut read,
                 &mut overlapped,
-            );
+            )
+            .as_bool()
+            {
+            } else {
+                let error = GetLastError();
+                if error != ERROR_IO_PENDING {
+                    eprintln!("{:?}", error);
+                    return None;
+                }
+            }
             match WaitForSingleObject(overlapped.hEvent, u32::MAX) {
                 WAIT_OBJECT_0 => {
                     if !GetOverlappedResult(self.0, &overlapped, &mut read, false).as_bool() {

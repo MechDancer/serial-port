@@ -7,7 +7,7 @@
             ReadFile,
         },
         Windows::Win32::System::{
-            Diagnostics::Debug::GetLastError,
+            Diagnostics::Debug::*,
             Threading::{CreateEventA, WaitForSingleObject},
             SystemServices::{
                 GENERIC_READ,
