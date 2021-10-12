@@ -1,4 +1,5 @@
-﻿use bindings::Windows::Win32::{
+﻿use crate::{PortKey, SerialId, SerialPort};
+use bindings::Windows::Win32::{
     Devices::{Communication::*, DeviceAndDriverInstallation::*},
     Foundation::{CloseHandle, HANDLE, HWND, PSTR},
     Security::SECURITY_ATTRIBUTES,
@@ -14,18 +15,53 @@ use std::{
     ptr::null,
 };
 use windows::{Handle, IntoParam, Param};
+
+// https://docs.microsoft.com/en-us/previous-versions/ff802693(v=msdn.10)?redirectedfrom=MSDN
+
+macro_rules! block_overlapped {
+    ($oper:ident => $handle:expr => $buffer:ident) => {
+        unsafe {
+            let mut len = 0u32;
+            let mut overlapped = OVERLAPPED {
+                hEvent: CreateEventA(
+                    null::<SECURITY_ATTRIBUTES>() as *const SECURITY_ATTRIBUTES,
+                    true,
+                    false,
+                    PSTR(null::<u8>() as *mut u8),
+                ),
+                ..Default::default()
+            };
+            if $oper(
+                $handle,
+                $buffer.as_ptr() as *mut c_void,
+                $buffer.len() as u32,
+                &mut len,
+                &mut overlapped,
+            )
+            .as_bool()
+                || (GetLastError() == ERROR_IO_PENDING
+                    && WaitForSingleObject(overlapped.hEvent, u32::MAX) == WAIT_OBJECT_0
+                    && GetOverlappedResult($handle, &overlapped, &mut len, false).as_bool())
+            {
+                Some(len as usize)
+            } else {
+                None
+            }
+        }
+    };
+}
+
 pub struct ComPort(HANDLE);
 
 impl Drop for ComPort {
     fn drop(&mut self) {
-        unsafe { CloseHandle(self.0) };
-        self.0 = HANDLE(0);
+        unsafe { CloseHandle(std::mem::replace(&mut self.0, HANDLE(0))) };
     }
 }
 
-impl super::SerialPort for ComPort {
-    fn list() -> Vec<String> {
-        let mut ports = Vec::<String>::new();
+impl SerialPort for ComPort {
+    fn list() -> Vec<SerialId> {
+        let mut ports = Vec::new();
         let set = unsafe {
             SetupDiGetClassDevsA(
                 &GUID_DEVINTERFACE_COMPORT,
@@ -43,6 +79,7 @@ impl super::SerialPort for ComPort {
             ..Default::default()
         };
         unsafe {
+            // 列出名字
             while SetupDiEnumDeviceInfo(set, i, &mut data).as_bool() {
                 let u_str_ptr = &mut str_array as *mut u8;
                 let i_str_ptr = u_str_ptr as *mut i8;
@@ -55,7 +92,19 @@ impl super::SerialPort for ComPort {
                     str_array.len() as u32,
                     null::<u32>() as *mut u32,
                 );
-                ports.push(CStr::from_ptr(i_str_ptr).to_str().unwrap().to_string());
+                // 解析名字
+                let name = CStr::from_ptr(i_str_ptr).to_str().unwrap();
+                let (comment, num) = name
+                    .rmatch_indices("COM")
+                    .next()
+                    .map(|m| (&name[..m.0 - 2], &name[m.0 + 3..name.len() - 1]))
+                    .unwrap();
+                if let Ok(n) = num.parse() {
+                    ports.push(SerialId {
+                        key: n,
+                        comment: comment.into(),
+                    });
+                }
                 i += 1;
             }
             SetupDiDestroyDeviceInfoList(set);
@@ -63,9 +112,9 @@ impl super::SerialPort for ComPort {
         ports
     }
 
-    fn open(path: &str, baud: u32, timeout: u32) -> Result<Self, String> {
+    fn open(path: &PortKey, baud: u32, timeout: u32) -> Result<Self, String> {
         let handle = unsafe {
-            let p: Param<'_, PSTR> = path.into_param();
+            let p: Param<'_, PSTR> = format!("\\\\.\\COM{}", path).into_param();
             let handle = CreateFileA(
                 p.abi(),
                 FILE_ACCESS_FLAGS(GENERIC_READ | GENERIC_WRITE),
@@ -110,71 +159,15 @@ impl super::SerialPort for ComPort {
     }
 
     fn read(&self, buffer: &mut [u8]) -> Option<usize> {
-        let mut overlapped = OVERLAPPED::default();
-        let mut read = 0u32;
-        unsafe {
-            overlapped.hEvent = CreateEventA(
-                null::<SECURITY_ATTRIBUTES>() as *const SECURITY_ATTRIBUTES,
-                true,
-                false,
-                PSTR(null::<u8>() as *mut u8),
-            );
-            if ReadFile(
-                self.0,
-                buffer.as_ptr() as *mut c_void,
-                buffer.len() as u32,
-                &mut read,
-                &mut overlapped,
-            )
-            .as_bool()
-            {
-            } else {
-                let error = GetLastError();
-                if error != ERROR_IO_PENDING {
-                    eprintln!("{:?}", error);
-                    return None;
-                }
-            }
-            match WaitForSingleObject(overlapped.hEvent, u32::MAX) {
-                WAIT_OBJECT_0 => {
-                    if !GetOverlappedResult(self.0, &overlapped, &mut read, false).as_bool() {
-                        None
-                    } else {
-                        Some(read as usize)
-                    }
-                }
-                _ => None,
-            }
-        }
+        block_overlapped!(ReadFile => self.0 => buffer)
     }
 
     fn write(&self, buffer: &[u8]) -> Option<usize> {
-        let mut overlapped = OVERLAPPED::default();
-        let mut written = 0u32;
-        unsafe {
-            overlapped.hEvent = CreateEventA(
-                null::<SECURITY_ATTRIBUTES>() as *const SECURITY_ATTRIBUTES,
-                true,
-                false,
-                PSTR(null::<u8>() as *mut u8),
-            );
-            WriteFile(
-                self.0,
-                buffer.as_ptr() as *const c_void,
-                buffer.len() as u32,
-                &mut written,
-                &mut overlapped,
-            );
-            match WaitForSingleObject(overlapped.hEvent, u32::MAX) {
-                WAIT_OBJECT_0 => {
-                    if !GetOverlappedResult(self.0, &overlapped, &mut written, false).as_bool() {
-                        None
-                    } else {
-                        Some(written as usize)
-                    }
-                }
-                _ => None,
-            }
-        }
+        block_overlapped!(WriteFile => self.0 => buffer)
     }
+}
+
+#[test]
+fn test_list() {
+    println!("{:?}", ComPort::list());
 }
