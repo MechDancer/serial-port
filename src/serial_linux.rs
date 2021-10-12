@@ -1,4 +1,5 @@
-﻿use nix::{
+﻿use crate::{PortKey, SerialId, SerialPort};
+use nix::{
     errno::Errno,
     fcntl::OFlag,
     sys::{
@@ -16,13 +17,20 @@ impl Drop for TTYPort {
     }
 }
 
-impl super::SerialPort for TTYPort {
-    fn list() -> Vec<String> {
+impl SerialPort for TTYPort {
+    fn list() -> Vec<SerialId> {
         match std::fs::read_dir("/dev/serial/by-path") {
             Ok(list) => list
                 .filter_map(|f| f.ok())
                 // .filter(|f| f.path().is_symlink()) // unstable
-                .filter_map(|f| f.path().to_str().and_then(|s| Some(s.to_string())))
+                .filter_map(|f| {
+                    f.file_name().to_str().and_then(|s| {
+                        Some(SerialId {
+                            key: s.to_string(),
+                            comment: s.to_string(),
+                        })
+                    })
+                })
                 .collect::<Vec<_>>(),
             Err(e) => {
                 panic!("failed to list serials: {:?}", e);
@@ -30,12 +38,16 @@ impl super::SerialPort for TTYPort {
         }
     }
 
-    fn open(path: &str, baud: u32) -> Result<Self, String> {
+    fn open(key: &PortKey, baud: u32, timeout: u32) -> Result<Self, String> {
         fn map_errno<T>(method: &str, e: Errno) -> Result<T, String> {
             Err(format!("failed to {}: {:?}", method, e))
         }
 
-        let fd = match nix::fcntl::open(path, OFlag::O_RDWR | OFlag::O_NOCTTY, Mode::empty()) {
+        let fd = match nix::fcntl::open(
+            format!("/dev/serial/by-path/{}", key).as_str(),
+            OFlag::O_RDWR | OFlag::O_NOCTTY,
+            Mode::empty(),
+        ) {
             Ok(fd) => TTYPort(fd),
             Err(e) => return map_errno("open", e),
         };
@@ -59,7 +71,7 @@ impl super::SerialPort for TTYPort {
         tty.control_flags.insert(ControlFlags::CS8);
         tty.control_flags.insert(ControlFlags::CREAD);
         tty.control_flags.insert(ControlFlags::CLOCAL);
-        tty.control_chars[VTIME as usize] = 1;
+        tty.control_chars[VTIME as usize] = (timeout / 100) as u8;
         tty.control_chars[VMIN as usize] = 0;
 
         if let Err(e) = termios::tcsetattr(fd.0, termios::SetArg::TCSAFLUSH, &tty) {

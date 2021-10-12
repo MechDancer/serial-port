@@ -1,19 +1,20 @@
 #[cfg(target_os = "windows")]
 #[path = ""]
-mod serial {
+mod m {
     mod serial_windows;
     pub type PortKey = u8;
     pub type Port = serial_windows::ComPort;
 }
 
-#[cfg(target_os = "windows")]
-pub use serial::*;
-
 #[cfg(target_os = "linux")]
-mod serial_linux;
+#[path = ""]
+mod m {
+    mod serial_linux;
+    pub type PortKey = String;
+    pub type Port = serial_linux::TTYPort;
+}
 
-#[cfg(target_os = "linux")]
-pub type Port = serial_linux::TTYPort;
+pub use m::*;
 
 #[derive(Debug)]
 pub struct SerialId {
