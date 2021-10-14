@@ -10,6 +10,7 @@ use bindings::Windows::Win32::{
         Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0},
     },
 };
+use encoding::{all::GBK, DecoderTrap, Encoding};
 use std::{
     ffi::{c_void, CStr},
     ptr::null,
@@ -81,8 +82,8 @@ impl SerialPort for ComPort {
         unsafe {
             // 列出名字
             while SetupDiEnumDeviceInfo(set, i, &mut data).as_bool() {
-                let u_str_ptr = &mut str_array as *mut u8;
-                let i_str_ptr = u_str_ptr as *mut i8;
+                let u_str_ptr = &mut str_array as *mut _;
+                let i_str_ptr = u_str_ptr as *const _;
                 SetupDiGetDeviceRegistryPropertyA(
                     set,
                     &mut data,
@@ -93,7 +94,11 @@ impl SerialPort for ComPort {
                     null::<u32>() as *mut u32,
                 );
                 // 解析名字
-                let name = CStr::from_ptr(i_str_ptr).to_str().unwrap();
+                let name =
+                    match GBK.decode(CStr::from_ptr(i_str_ptr).to_bytes(), DecoderTrap::Strict) {
+                        Ok(s) => s,
+                        Err(_) => CStr::from_ptr(i_str_ptr).to_string_lossy().to_string(),
+                    };
                 let (comment, num) = name
                     .rmatch_indices("COM")
                     .next()
