@@ -32,8 +32,8 @@ impl SerialPort for TTYPort {
                     })
                 })
                 .collect::<Vec<_>>(),
-            Err(e) => {
-                panic!("failed to list serials: {:?}", e);
+            Err(_) => {
+                vec![]
             }
         }
     }
