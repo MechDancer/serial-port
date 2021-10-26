@@ -1,7 +1,8 @@
 ﻿use crate::{PortKey, SerialId, SerialPort};
 use nix::{
     errno::Errno,
-    fcntl::OFlag,
+    fcntl::{self, fcntl, FcntlArg, FdFlag, FlockArg, OFlag},
+    libc::FD_CLOEXEC,
     sys::{
         stat::Mode,
         termios::{self, ControlFlags, SpecialCharacterIndices::*},
@@ -43,7 +44,7 @@ impl SerialPort for TTYPort {
             Err(format!("failed to {}: {:?}", method, e))
         }
 
-        let fd = match nix::fcntl::open(
+        let fd = match fcntl::open(
             format!("/dev/serial/by-path/{}", key).as_str(),
             OFlag::O_RDWR | OFlag::O_NOCTTY,
             Mode::empty(),
@@ -52,9 +53,13 @@ impl SerialPort for TTYPort {
             Err(e) => return map_errno("open", e),
         };
 
-        if nix::fcntl::flock(fd.0, nix::fcntl::FlockArg::LockExclusiveNonblock).is_err() {
+        if fcntl::flock(fd.0, FlockArg::LockExclusiveNonblock).is_err() {
             return Err(String::from("failed to lock serial exclusive"));
         }
+
+        let mut flags = fcntl(fd.0, FcntlArg::F_GETFD).unwrap();
+        flags |= FD_CLOEXEC;
+        fcntl(fd.0, FcntlArg::F_SETFD(FdFlag::from_bits(flags).unwrap())).unwrap();
 
         let mut tty = match termios::tcgetattr(fd.0) {
             Ok(t) => t,
