@@ -8,7 +8,7 @@ readme = "README.md"
 [target.'cfg(windows)'.dependencies]
 bindings = { path = "bindings" }
 encoding = "*"
-windows = "*"
+windows = "0.21"
 
 [target.'cfg(unix)'.dependencies]
 nix = "*"

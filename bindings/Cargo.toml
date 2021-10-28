@@ -2,12 +2,12 @@
 name = "bindings"
 version = "0.1.0"
 authors = ["YdrMaster <ydrml@hotmail.com>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-windows="*"
+windows = "0.21"
 
 [build-dependencies]
-windows="*"
+windows = "0.21"
