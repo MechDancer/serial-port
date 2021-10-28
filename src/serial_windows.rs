@@ -1,11 +1,10 @@
 ﻿use crate::{PortKey, SerialId, SerialPort};
 use bindings::Windows::Win32::{
     Devices::{Communication::*, DeviceAndDriverInstallation::*},
-    Foundation::{CloseHandle, HANDLE, HWND, PSTR},
+    Foundation::{CloseHandle, GetLastError, HANDLE, HWND, PSTR, WIN32_ERROR},
     Security::SECURITY_ATTRIBUTES,
     Storage::FileSystem::*,
     System::{
-        Diagnostics::Debug::{GetLastError, ERROR_IO_PENDING},
         SystemServices::*,
         Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0},
     },
@@ -15,7 +14,7 @@ use std::{
     ffi::{c_void, CStr},
     ptr::null,
 };
-use windows::{Handle, IntoParam, Param};
+use windows::runtime::{Handle, IntoParam, Param};
 
 // https://docs.microsoft.com/en-us/previous-versions/ff802693(v=msdn.10)?redirectedfrom=MSDN
 
@@ -40,9 +39,9 @@ macro_rules! block_overlapped {
                 &mut overlapped,
             )
             .as_bool()
-                || (GetLastError() == ERROR_IO_PENDING
-                    && WaitForSingleObject(overlapped.hEvent, u32::MAX) == WAIT_OBJECT_0
-                    && GetOverlappedResult($handle, &overlapped, &mut len, false).as_bool())
+            ||
+            // (GetLastError().0 == 1460 && // FIXME break on windows crate 0.22.1
+            (WaitForSingleObject(overlapped.hEvent, u32::MAX) == WAIT_OBJECT_0 && GetOverlappedResult($handle, &overlapped, &mut len, false).as_bool())
             {
                 Some(len as usize)
             } else {

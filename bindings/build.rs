@@ -1,14 +1,13 @@
 ﻿fn main() {
-    windows::build! {
-        Windows::Win32::Foundation::CloseHandle,
+    windows::runtime::build! {
+        Windows::Win32::Foundation::{CloseHandle, GetLastError},
         Windows::Win32::Storage::FileSystem::{
             CreateFileA,
             WriteFile,
             ReadFile,
         },
         Windows::Win32::System::{
-            Diagnostics::Debug::*,
-            Threading::{CreateEventA, WaitForSingleObject},
+            Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0},
             SystemServices::{
                 GENERIC_READ,
                 GENERIC_WRITE,
