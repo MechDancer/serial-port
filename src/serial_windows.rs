@@ -1,7 +1,7 @@
 ﻿use crate::{PortKey, SerialId, SerialPort};
 use bindings::Windows::Win32::{
     Devices::{Communication::*, DeviceAndDriverInstallation::*},
-    Foundation::{CloseHandle, GetLastError, HANDLE, HWND, PSTR, WIN32_ERROR},
+    Foundation::{CloseHandle, GetLastError, HANDLE, HWND, PSTR},
     Security::SECURITY_ATTRIBUTES,
     Storage::FileSystem::*,
     System::{
