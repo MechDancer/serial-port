@@ -5,8 +5,10 @@ use bindings::Windows::Win32::{
     Security::SECURITY_ATTRIBUTES,
     Storage::FileSystem::*,
     System::{
+        Ioctl::GUID_DEVINTERFACE_COMPORT,
         SystemServices::*,
         Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0},
+        IO::{GetOverlappedResult, OVERLAPPED},
     },
 };
 use encoding::{all::GBK, DecoderTrap, Encoding};
