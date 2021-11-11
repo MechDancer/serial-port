@@ -16,7 +16,7 @@ use std::{
     ffi::{c_void, CStr},
     ptr::null,
 };
-use windows::runtime::{Handle, IntoParam, Param};
+use windows::runtime::Handle;
 
 // https://docs.microsoft.com/en-us/previous-versions/ff802693(v=msdn.10)?redirectedfrom=MSDN
 
@@ -120,9 +120,9 @@ impl SerialPort for ComPort {
 
     fn open(path: &PortKey, baud: u32, timeout: u32) -> Result<Self, String> {
         let handle = unsafe {
-            let p: Param<'_, PSTR> = format!("\\\\.\\COM{}", path).into_param();
+            let mut path = format!("\\\\.\\COM{}", path);
             let handle = CreateFileA(
-                p.abi(),
+                PSTR(path.as_mut_ptr()),
                 FILE_ACCESS_FLAGS(GENERIC_READ | GENERIC_WRITE),
                 FILE_SHARE_MODE(0),
                 null::<SECURITY_ATTRIBUTES>() as *mut SECURITY_ATTRIBUTES,
