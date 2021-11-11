@@ -40,7 +40,7 @@ impl SerialPort for TTYPort {
     }
 
     fn open(key: &PortKey, baud: u32, timeout: u32) -> Result<Self, String> {
-        fn map_errno<T>(method: &str, e: Errno) -> Result<T, String> {
+        fn map_errno<T>(method: &str, e: nix::Error) -> Result<T, String> {
             Err(format!("failed to {}: {:?}", method, e))
         }
 
