@@ -1,13 +1,22 @@
 [package]
 name = "serial-port"
-version = "0.1.26"
+version = "0.1.28"
 authors = ["YdrMaster <ydrml@hotmail.com>"]
 edition = "2021"
 readme = "README.md"
 
 [target.'cfg(windows)'.dependencies]
-bindings = { path = "bindings" }
-windows = "*"
+windows = { version = "*", features = [
+    "Win32_Devices_Communication",
+    "Win32_Devices_DeviceAndDriverInstallation",
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_Security",
+    "Win32_System_IO",
+    "Win32_System_Ioctl",
+    "Win32_System_Threading",
+    "Win32_System_SystemServices",
+] }
 encoding = "*"
 
 [target.'cfg(unix)'.dependencies]

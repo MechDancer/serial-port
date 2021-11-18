@@ -1,22 +1,34 @@
 ﻿use crate::{PortKey, SerialId, SerialPort};
-use bindings::Windows::Win32::{
-    Devices::{Communication::*, DeviceAndDriverInstallation::*},
-    Foundation::{CloseHandle, GetLastError, HANDLE, HWND, PSTR},
-    Security::SECURITY_ATTRIBUTES,
-    Storage::FileSystem::*,
-    System::{
-        Ioctl::GUID_DEVINTERFACE_COMPORT,
-        SystemServices::*,
-        Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0},
-        IO::{GetOverlappedResult, OVERLAPPED},
-    },
-};
 use encoding::{all::GBK, DecoderTrap, Encoding};
 use std::{
     ffi::{c_void, CStr},
     ptr::null,
 };
-use windows::runtime::Handle;
+use windows::{
+    core::Handle,
+    Win32::{
+        Devices::{
+            Communication::{SetCommState, SetCommTimeouts, COMMTIMEOUTS, DCB},
+            DeviceAndDriverInstallation::{
+                SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInfo, SetupDiGetClassDevsA,
+                SetupDiGetDeviceRegistryPropertyA, DIGCF_DEVICEINTERFACE, DIGCF_PRESENT,
+                SPDRP_FRIENDLYNAME, SP_DEVINFO_DATA,
+            },
+        },
+        Foundation::{CloseHandle, GetLastError, ERROR_IO_PENDING, HANDLE, HWND, PSTR},
+        Security::SECURITY_ATTRIBUTES,
+        Storage::FileSystem::{
+            CreateFileA, ReadFile, WriteFile, FILE_ACCESS_FLAGS, FILE_FLAG_OVERLAPPED,
+            FILE_SHARE_MODE, OPEN_EXISTING,
+        },
+        System::{
+            Ioctl::GUID_DEVINTERFACE_COMPORT,
+            SystemServices::{GENERIC_READ, GENERIC_WRITE},
+            Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0},
+            IO::{GetOverlappedResult, OVERLAPPED},
+        },
+    },
+};
 
 // https://docs.microsoft.com/en-us/previous-versions/ff802693(v=msdn.10)?redirectedfrom=MSDN
 
@@ -41,9 +53,9 @@ macro_rules! block_overlapped {
                 &mut overlapped,
             )
             .as_bool()
-            ||
-            // (GetLastError().0 == 1460 && // FIXME break on windows crate 0.22.1
-            (WaitForSingleObject(overlapped.hEvent, u32::MAX) == WAIT_OBJECT_0 && GetOverlappedResult($handle, &overlapped, &mut len, false).as_bool())
+                || (GetLastError() == ERROR_IO_PENDING
+                    && WaitForSingleObject(overlapped.hEvent, u32::MAX) == WAIT_OBJECT_0
+                    && GetOverlappedResult($handle, &overlapped, &mut len, false).as_bool())
             {
                 Some(len as usize)
             } else {
