@@ -1,6 +1,5 @@
 ﻿use crate::{PortKey, SerialId, SerialPort};
 use nix::{
-    errno::Errno,
     fcntl::{self, fcntl, FcntlArg, FdFlag, FlockArg, OFlag},
     libc::FD_CLOEXEC,
     sys::{

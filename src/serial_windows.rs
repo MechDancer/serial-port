@@ -4,29 +4,23 @@ use std::{
     ffi::{c_void, CStr},
     ptr::null,
 };
-use windows::{
-    core::Handle,
-    Win32::{
-        Devices::{
-            Communication::{SetCommState, SetCommTimeouts, COMMTIMEOUTS, DCB},
-            DeviceAndDriverInstallation::{
-                SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInfo, SetupDiGetClassDevsA,
-                SetupDiGetDeviceRegistryPropertyA, DIGCF_DEVICEINTERFACE, DIGCF_PRESENT,
-                SPDRP_FRIENDLYNAME, SP_DEVINFO_DATA,
-            },
+use windows::Win32::{
+    Devices::{
+        Communication::{SetCommState, SetCommTimeouts, COMMTIMEOUTS, DCB},
+        DeviceAndDriverInstallation::{
+            SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInfo, SetupDiGetClassDevsA,
+            SetupDiGetDeviceRegistryPropertyA, DIGCF_DEVICEINTERFACE, DIGCF_PRESENT,
+            SPDRP_FRIENDLYNAME, SP_DEVINFO_DATA,
         },
-        Foundation::{CloseHandle, GetLastError, ERROR_IO_PENDING, HANDLE, HWND, PSTR},
-        Security::SECURITY_ATTRIBUTES,
-        Storage::FileSystem::{
-            CreateFileA, ReadFile, WriteFile, FILE_ACCESS_FLAGS, FILE_FLAG_OVERLAPPED,
-            FILE_SHARE_MODE, OPEN_EXISTING,
-        },
-        System::{
-            Ioctl::GUID_DEVINTERFACE_COMPORT,
-            SystemServices::{GENERIC_READ, GENERIC_WRITE},
-            Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0},
-            IO::{GetOverlappedResult, OVERLAPPED},
-        },
+    },
+    Foundation::{CloseHandle, GetLastError, ERROR_IO_PENDING, HANDLE, PSTR},
+    Security::SECURITY_ATTRIBUTES,
+    Storage::FileSystem::{CreateFileA, ReadFile, WriteFile, FILE_FLAG_OVERLAPPED, OPEN_EXISTING},
+    System::{
+        Ioctl::GUID_DEVINTERFACE_COMPORT,
+        SystemServices::{GENERIC_READ, GENERIC_WRITE},
+        Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0},
+        IO::{GetOverlappedResult, OVERLAPPED},
     },
 };
 
@@ -80,7 +74,7 @@ impl SerialPort for ComPort {
             SetupDiGetClassDevsA(
                 &GUID_DEVINTERFACE_COMPORT,
                 PSTR(null::<u8>() as *mut u8),
-                HWND(0),
+                0,
                 DIGCF_PRESENT | DIGCF_DEVICEINTERFACE,
             )
             // if *set == INVALID_HANDLE_VALUE {}
@@ -135,8 +129,8 @@ impl SerialPort for ComPort {
             let mut path = format!("\\\\.\\COM{}", path);
             let handle = CreateFileA(
                 PSTR(path.as_mut_ptr()),
-                FILE_ACCESS_FLAGS(GENERIC_READ | GENERIC_WRITE),
-                FILE_SHARE_MODE(0),
+                GENERIC_READ | GENERIC_WRITE,
+                0,
                 null::<SECURITY_ATTRIBUTES>() as *mut SECURITY_ATTRIBUTES,
                 OPEN_EXISTING,
                 FILE_FLAG_OVERLAPPED,
