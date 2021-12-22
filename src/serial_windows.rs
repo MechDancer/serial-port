@@ -126,7 +126,7 @@ impl SerialPort for ComPort {
 
     fn open(path: &PortKey, baud: u32, timeout: u32) -> Result<Self, String> {
         let handle = unsafe {
-            let mut path = format!("\\\\.\\COM{}", path);
+            let mut path = format!("\\\\.\\COM{}\0", path);
             let handle = CreateFileA(
                 PSTR(path.as_mut_ptr()),
                 GENERIC_READ | GENERIC_WRITE,
