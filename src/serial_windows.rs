@@ -13,7 +13,7 @@ use windows::Win32::{
             SPDRP_FRIENDLYNAME, SP_DEVINFO_DATA,
         },
     },
-    Foundation::{CloseHandle, GetLastError, ERROR_IO_PENDING, HANDLE, PSTR},
+    Foundation::{CloseHandle, GetLastError, ERROR_IO_PENDING, HANDLE, HWND, PSTR},
     Security::SECURITY_ATTRIBUTES,
     Storage::FileSystem::{CreateFileA, ReadFile, WriteFile, FILE_FLAG_OVERLAPPED, OPEN_EXISTING},
     System::{
@@ -74,7 +74,7 @@ impl SerialPort for ComPort {
             SetupDiGetClassDevsA(
                 &GUID_DEVINTERFACE_COMPORT,
                 PSTR(null::<u8>() as *mut u8),
-                0,
+                HWND(0),
                 DIGCF_PRESENT | DIGCF_DEVICEINTERFACE,
             )
             // if *set == INVALID_HANDLE_VALUE {}
