@@ -40,11 +40,11 @@ impl SerialPort for TTYPort {
 
     fn open(key: &PortKey, baud: u32, timeout: u32) -> Result<Self, String> {
         fn map_errno<T>(method: &str, e: nix::Error) -> Result<T, String> {
-            Err(format!("failed to {}: {:?}", method, e))
+            Err(format!("failed to {method}: {:?}", e))
         }
 
         let fd = match fcntl::open(
-            format!("/dev/serial/by-path/{}", key).as_str(),
+            format!("/dev/serial/by-path/{key}").as_str(),
             OFlag::O_RDWR | OFlag::O_NOCTTY,
             Mode::empty(),
         ) {
@@ -100,6 +100,6 @@ fn baud_rate_translate(baud: u32) -> termios::BaudRate {
         115200 => termios::BaudRate::B115200,
         230400 => termios::BaudRate::B230400,
         460800 => termios::BaudRate::B460800,
-        _ => panic!("unsupported baud rate: {}", baud),
+        _ => panic!("unsupported baud rate: {baud}"),
     }
 }
