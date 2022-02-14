@@ -15,10 +15,12 @@ use windows::Win32::{
     },
     Foundation::{CloseHandle, GetLastError, ERROR_IO_PENDING, HANDLE, HWND, PSTR},
     Security::SECURITY_ATTRIBUTES,
-    Storage::FileSystem::{CreateFileA, ReadFile, WriteFile, FILE_FLAG_OVERLAPPED, OPEN_EXISTING},
+    Storage::FileSystem::{
+        CreateFileA, ReadFile, WriteFile, FILE_FLAG_OVERLAPPED, FILE_GENERIC_READ,
+        FILE_GENERIC_WRITE, FILE_SHARE_NONE, OPEN_EXISTING,
+    },
     System::{
         Ioctl::GUID_DEVINTERFACE_COMPORT,
-        SystemServices::{GENERIC_READ, GENERIC_WRITE},
         Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0},
         IO::{GetOverlappedResult, OVERLAPPED},
     },
@@ -93,7 +95,7 @@ impl SerialPort for ComPort {
                 let i_str_ptr = u_str_ptr as *const _;
                 SetupDiGetDeviceRegistryPropertyA(
                     set,
-                    &mut data,
+                    &data,
                     SPDRP_FRIENDLYNAME,
                     null::<u32>() as *mut u32,
                     u_str_ptr,
@@ -129,8 +131,8 @@ impl SerialPort for ComPort {
             let mut path = format!("\\\\.\\COM{path}\0");
             let handle = CreateFileA(
                 PSTR(path.as_mut_ptr()),
-                GENERIC_READ | GENERIC_WRITE,
-                0,
+                FILE_GENERIC_READ | FILE_GENERIC_WRITE,
+                FILE_SHARE_NONE,
                 null::<SECURITY_ATTRIBUTES>() as *mut SECURITY_ATTRIBUTES,
                 OPEN_EXISTING,
                 FILE_FLAG_OVERLAPPED,
@@ -144,25 +146,25 @@ impl SerialPort for ComPort {
 
         let port = ComPort(handle);
 
-        let mut dcb = DCB {
+        let dcb = DCB {
             DCBlength: std::mem::size_of::<DCB>() as u32,
             BaudRate: baud,
             ByteSize: 8,
             ..Default::default()
         };
         unsafe {
-            if !SetCommState(port.0, &mut dcb).as_bool() {
+            if !SetCommState(port.0, &dcb).as_bool() {
                 return Err(format!("failed to set dcb: {:?}", GetLastError()));
             }
         }
 
-        let mut commtimeouts = COMMTIMEOUTS {
+        let commtimeouts = COMMTIMEOUTS {
             ReadIntervalTimeout: 5,
             ReadTotalTimeoutConstant: timeout,
             ..Default::default()
         };
         unsafe {
-            if !SetCommTimeouts(port.0, &mut commtimeouts).as_bool() {
+            if !SetCommTimeouts(port.0, &commtimeouts).as_bool() {
                 return Err(format!("failed to set timeout: {:?}", GetLastError()));
             }
         }
