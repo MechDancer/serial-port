@@ -13,7 +13,7 @@ use windows::Win32::{
             SPDRP_FRIENDLYNAME, SP_DEVINFO_DATA,
         },
     },
-    Foundation::{CloseHandle, GetLastError, ERROR_IO_PENDING, HANDLE, HWND, PSTR},
+    Foundation::{CloseHandle, GetLastError, ERROR_IO_PENDING, HANDLE, HWND, PSTR, WIN32_ERROR},
     Security::SECURITY_ATTRIBUTES,
     Storage::FileSystem::{
         CreateFileA, ReadFile, WriteFile, FILE_FLAG_OVERLAPPED, FILE_GENERIC_READ,
@@ -126,7 +126,7 @@ impl SerialPort for ComPort {
         ports
     }
 
-    fn open(path: &PortKey, baud: u32, timeout: u32) -> Result<Self, String> {
+    fn open(path: &PortKey, baud: u32, timeout: u32) -> Result<Self, (&'static str, WIN32_ERROR)> {
         let handle = unsafe {
             let mut path = format!("\\\\.\\COM{path}\0");
             let handle = CreateFileA(
@@ -139,7 +139,7 @@ impl SerialPort for ComPort {
                 HANDLE(0),
             );
             if handle.is_invalid() {
-                return Err(format!("failed to open: {:?}", GetLastError()));
+                return Err(("CreateFileA", GetLastError()));
             }
             handle
         };
@@ -154,7 +154,7 @@ impl SerialPort for ComPort {
         };
         unsafe {
             if !SetCommState(port.0, &dcb).as_bool() {
-                return Err(format!("failed to set dcb: {:?}", GetLastError()));
+                return Err(("SetCommState", GetLastError()));
             }
         }
 
@@ -165,7 +165,7 @@ impl SerialPort for ComPort {
         };
         unsafe {
             if !SetCommTimeouts(port.0, &commtimeouts).as_bool() {
-                return Err(format!("failed to set timeout: {:?}", GetLastError()));
+                return Err(("SetCommTimeouts", GetLastError()));
             }
         }
 
