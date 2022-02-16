@@ -24,11 +24,9 @@ impl SerialPort for TTYPort {
                 .filter_map(|f| f.ok())
                 // .filter(|f| f.path().is_symlink()) // unstable
                 .filter_map(|f| {
-                    f.file_name().to_str().and_then(|s| {
-                        Some(SerialId {
-                            key: s.to_string(),
-                            comment: s.to_string(),
-                        })
+                    f.file_name().to_str().map(|s| SerialId {
+                        key: s.to_string(),
+                        comment: s.to_string(),
                     })
                 })
                 .collect::<Vec<_>>(),
@@ -38,22 +36,18 @@ impl SerialPort for TTYPort {
         }
     }
 
-    fn open(key: &PortKey, baud: u32, timeout: u32) -> Result<Self, String> {
-        fn map_errno<T>(method: &str, e: nix::Error) -> Result<T, String> {
-            Err(format!("failed to {method}: {:?}", e))
-        }
-
+    fn open(key: &PortKey, baud: u32, timeout: u32) -> Result<Self, (&'static str, nix::Error)> {
         let fd = match fcntl::open(
             format!("/dev/serial/by-path/{key}").as_str(),
             OFlag::O_RDWR | OFlag::O_NOCTTY,
             Mode::empty(),
         ) {
             Ok(fd) => TTYPort(fd),
-            Err(e) => return map_errno("open", e),
+            Err(e) => return Err(("fcntl::open", e)),
         };
 
-        if fcntl::flock(fd.0, FlockArg::LockExclusiveNonblock).is_err() {
-            return Err(String::from("failed to lock serial exclusive"));
+        if let Err(e) = fcntl::flock(fd.0, FlockArg::LockExclusiveNonblock) {
+            return Err(("fcntl::flock", e));
         }
 
         let mut flags = fcntl(fd.0, FcntlArg::F_GETFD).unwrap();
@@ -62,7 +56,7 @@ impl SerialPort for TTYPort {
 
         let mut tty = match termios::tcgetattr(fd.0) {
             Ok(t) => t,
-            Err(e) => return map_errno("tcgetattr", e),
+            Err(e) => return Err(("termios::tcgetattr", e)),
         };
         tty.input_flags.remove(termios::InputFlags::all());
         tty.output_flags.remove(termios::OutputFlags::all());
@@ -70,7 +64,7 @@ impl SerialPort for TTYPort {
         tty.local_flags.remove(termios::LocalFlags::all());
 
         if let Err(e) = termios::cfsetspeed(&mut tty, baud_rate_translate(baud)) {
-            return map_errno("cfsetspeed", e);
+            return Err(("termios::cfsetspeed", e));
         }
         tty.control_flags.insert(ControlFlags::CS8);
         tty.control_flags.insert(ControlFlags::CREAD);
@@ -79,7 +73,7 @@ impl SerialPort for TTYPort {
         tty.control_chars[VMIN as usize] = 0;
 
         if let Err(e) = termios::tcsetattr(fd.0, termios::SetArg::TCSAFLUSH, &tty) {
-            return map_errno("tcsetattr", e);
+            return Err(("termios::tcsetattr", e));
         }
 
         Ok(fd)
