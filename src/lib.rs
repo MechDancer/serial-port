@@ -16,6 +16,15 @@ mod m {
     pub type Error = nix::Error;
 }
 
+#[cfg(target_os = "macos")]
+#[path = ""]
+mod m {
+    mod serial_linux;
+    pub type PortKey = String;
+    pub type Port = serial_linux::TTYPort;
+    pub type Error = nix::Error;
+}
+
 pub use m::*;
 
 #[derive(Debug)]

@@ -21,3 +21,6 @@ encoding = "*"
 
 [target.'cfg(unix)'.dependencies]
 nix = "*"
+
+[target.'cfg(macos)'.dependencies]
+nix = "*"

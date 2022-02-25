@@ -93,7 +93,7 @@ fn baud_rate_translate(baud: u32) -> termios::BaudRate {
         9600 => termios::BaudRate::B9600,
         115200 => termios::BaudRate::B115200,
         230400 => termios::BaudRate::B230400,
-        460800 => termios::BaudRate::B460800,
+        // 460800 => termios::BaudRate::B460800,   //macos无法支持
         _ => panic!("unsupported baud rate: {baud}"),
     }
 }
