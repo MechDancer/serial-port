@@ -1,28 +1,31 @@
-﻿use crate::{PortKey, SerialId, SerialPort};
+﻿use crate::{Error, PortKey, SerialId, SerialPort};
 use encoding::{all::GBK, DecoderTrap, Encoding};
 use std::{
     ffi::{c_void, CStr},
     ptr::null,
 };
-use windows::Win32::{
-    Devices::{
-        Communication::{SetCommState, SetCommTimeouts, COMMTIMEOUTS, DCB},
-        DeviceAndDriverInstallation::{
-            SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInfo, SetupDiGetClassDevsA,
-            SetupDiGetDeviceRegistryPropertyA, DIGCF_DEVICEINTERFACE, DIGCF_PRESENT,
-            SPDRP_FRIENDLYNAME, SP_DEVINFO_DATA,
+use windows::{
+    core::PCSTR,
+    Win32::{
+        Devices::{
+            Communication::{SetCommState, SetCommTimeouts, COMMTIMEOUTS, DCB},
+            DeviceAndDriverInstallation::{
+                SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInfo, SetupDiGetClassDevsA,
+                SetupDiGetDeviceRegistryPropertyA, DIGCF_DEVICEINTERFACE, DIGCF_PRESENT,
+                SPDRP_FRIENDLYNAME, SP_DEVINFO_DATA,
+            },
         },
-    },
-    Foundation::{CloseHandle, GetLastError, ERROR_IO_PENDING, HANDLE, HWND, PSTR, WIN32_ERROR},
-    Security::SECURITY_ATTRIBUTES,
-    Storage::FileSystem::{
-        CreateFileA, ReadFile, WriteFile, FILE_FLAG_OVERLAPPED, FILE_GENERIC_READ,
-        FILE_GENERIC_WRITE, FILE_SHARE_NONE, OPEN_EXISTING,
-    },
-    System::{
-        Ioctl::GUID_DEVINTERFACE_COMPORT,
-        Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0},
-        IO::{GetOverlappedResult, OVERLAPPED},
+        Foundation::{CloseHandle, GetLastError, ERROR_IO_PENDING, HANDLE, HWND},
+        Security::SECURITY_ATTRIBUTES,
+        Storage::FileSystem::{
+            CreateFileA, ReadFile, WriteFile, FILE_FLAG_OVERLAPPED, FILE_GENERIC_READ,
+            FILE_GENERIC_WRITE, FILE_SHARE_NONE, OPEN_EXISTING,
+        },
+        System::{
+            Ioctl::GUID_DEVINTERFACE_COMPORT,
+            Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0},
+            IO::{GetOverlappedResult, OVERLAPPED},
+        },
     },
 };
 
@@ -37,8 +40,9 @@ macro_rules! block_overlapped {
                     null::<SECURITY_ATTRIBUTES>() as *const SECURITY_ATTRIBUTES,
                     true,
                     false,
-                    PSTR(null::<u8>() as *mut u8),
-                ),
+                    PCSTR(null::<u8>() as *mut u8),
+                )
+                .unwrap(),
                 ..Default::default()
             };
             if $oper(
@@ -75,7 +79,7 @@ impl SerialPort for ComPort {
         let set = unsafe {
             SetupDiGetClassDevsA(
                 &GUID_DEVINTERFACE_COMPORT,
-                PSTR(null::<u8>() as *mut u8),
+                PCSTR(null::<u8>() as *mut u8),
                 HWND(0),
                 DIGCF_PRESENT | DIGCF_DEVICEINTERFACE,
             )
@@ -126,23 +130,20 @@ impl SerialPort for ComPort {
         ports
     }
 
-    fn open(path: &PortKey, baud: u32, timeout: u32) -> Result<Self, (&'static str, WIN32_ERROR)> {
+    fn open(path: &PortKey, baud: u32, timeout: u32) -> Result<Self, (&'static str, Error)> {
         let handle = unsafe {
             let mut path = format!("\\\\.\\COM{path}\0");
-            let handle = CreateFileA(
-                PSTR(path.as_mut_ptr()),
+            CreateFileA(
+                PCSTR(path.as_mut_ptr()),
                 FILE_GENERIC_READ | FILE_GENERIC_WRITE,
                 FILE_SHARE_NONE,
                 null::<SECURITY_ATTRIBUTES>() as *mut SECURITY_ATTRIBUTES,
                 OPEN_EXISTING,
                 FILE_FLAG_OVERLAPPED,
                 HANDLE(0),
-            );
-            if handle.is_invalid() {
-                return Err(("CreateFileA", GetLastError()));
-            }
-            handle
-        };
+            )
+            .map_err(|e| ("CreateFileA", e))
+        }?;
 
         let port = ComPort(handle);
 
@@ -154,7 +155,7 @@ impl SerialPort for ComPort {
         };
         unsafe {
             if !SetCommState(port.0, &dcb).as_bool() {
-                return Err(("SetCommState", GetLastError()));
+                return Err(("SetCommState", Error::from_win32()));
             }
         }
 
@@ -165,7 +166,7 @@ impl SerialPort for ComPort {
         };
         unsafe {
             if !SetCommTimeouts(port.0, &commtimeouts).as_bool() {
-                return Err(("SetCommTimeouts", GetLastError()));
+                return Err(("SetCommTimeouts", Error::from_win32()));
             }
         }
 

@@ -4,7 +4,7 @@ mod m {
     mod serial_windows;
     pub type PortKey = u8;
     pub type Port = serial_windows::ComPort;
-    pub type Error = windows::Win32::Foundation::WIN32_ERROR;
+    pub type Error = windows::core::Error;
 }
 
 #[cfg(target_os = "linux")]
