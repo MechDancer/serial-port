@@ -83,7 +83,7 @@ impl SerialPort for ComPort {
                 HWND(0),
                 DIGCF_PRESENT | DIGCF_DEVICEINTERFACE,
             )
-            // if *set == INVALID_HANDLE_VALUE {}
+            .unwrap()
         };
 
         let mut str_array = [0u8; 64];
