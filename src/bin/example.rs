@@ -1,4 +1,5 @@
 ﻿use serial_port::{Port, SerialPort};
+use std::io::Write;
 
 fn main() {
     use std::{sync::Arc, thread};
@@ -16,6 +17,7 @@ fn main() {
     }
     let mut buf = [0u8; 1024];
     while let Some(n) = port.read(&mut buf) {
-        println!("{}", std::str::from_utf8(&buf[..n]).unwrap());
+        print!("{}", String::from_utf8_lossy(&buf[..n]));
+        std::io::stdout().flush().unwrap();
     }
 }
