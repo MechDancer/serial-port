@@ -1,6 +1,6 @@
 [package]
 name = "serial-port"
-version = "0.1.38"
+version = "0.1.39"
 authors = ["YdrMaster <ydrml@hotmail.com>"]
 edition = "2021"
 readme = "README.md"

@@ -15,7 +15,7 @@ use windows::{
                 SPDRP_FRIENDLYNAME, SP_DEVINFO_DATA,
             },
         },
-        Foundation::{CloseHandle, GetLastError, ERROR_IO_PENDING, HANDLE, HWND},
+        Foundation::{CloseHandle, GetLastError, ERROR_IO_PENDING, HANDLE, HWND, WAIT_OBJECT_0},
         Security::SECURITY_ATTRIBUTES,
         Storage::FileSystem::{
             CreateFileA, ReadFile, WriteFile, FILE_FLAG_OVERLAPPED, FILE_GENERIC_READ,
@@ -23,7 +23,7 @@ use windows::{
         },
         System::{
             Ioctl::GUID_DEVINTERFACE_COMPORT,
-            Threading::{CreateEventA, WaitForSingleObject, WAIT_OBJECT_0},
+            Threading::{CreateEventA, WaitForSingleObject},
             IO::{GetOverlappedResult, OVERLAPPED},
         },
     },
@@ -54,7 +54,7 @@ macro_rules! block_overlapped {
             )
             .as_bool()
                 || (GetLastError() == ERROR_IO_PENDING
-                    && WaitForSingleObject(overlapped.hEvent, u32::MAX) == WAIT_OBJECT_0
+                    && WaitForSingleObject(overlapped.hEvent, u32::MAX) == WAIT_OBJECT_0.0
                     && GetOverlappedResult($handle, &overlapped, &mut len, false).as_bool())
             {
                 Some(len as usize)

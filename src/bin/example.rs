@@ -3,7 +3,11 @@ use std::io::Write;
 
 fn main() {
     use std::{sync::Arc, thread};
-    let port = Port::list().into_iter().next().expect("no serial port");
+    let port = Port::list()
+        .into_iter()
+        .find(|id| id.comment.to_ascii_lowercase().contains("usb"))
+        .expect("no serial port");
+    println!("Port: {}", port.comment);
     let port = Arc::new(Port::open(&port.key, 115200, u32::MAX).unwrap());
     {
         let port = port.clone();
